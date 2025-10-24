@@ -1,41 +1,39 @@
 """Tests for configuration module."""
-from src.config import DatabricksConfig, DatabaseConfig, OSC_COLORS, OSC_FONTS
+from src.config import DatabricksConfig, DatabaseConfig, AppConfig, OSC_COLORS, OSC_FONTS
 
 
-def test_databricks_config_from_env(monkeypatch):
-    """Test DatabricksConfig creation from environment variables."""
-    monkeypatch.setenv("DATABRICKS_HOST", "https://test.databricks.com")
-    monkeypatch.setenv("ENDPOINT_NAME", "test-endpoint")
-    
-    config = DatabricksConfig.from_env()
-    
-    assert config.host == "https://test.databricks.com"
-    assert config.endpoint_name == "test-endpoint"
-
-
-def test_databricks_config_defaults():
-    """Test DatabricksConfig with default values."""
-    config = DatabricksConfig.from_env()
+def test_databricks_config_from_config():
+    """Test DatabricksConfig creation from config file."""
+    config = DatabricksConfig.from_config()
     
     assert config.host is not None
     assert config.endpoint_name is not None
+    assert "https://" in config.host
 
 
-def test_database_config_from_env(monkeypatch):
-    """Test DatabaseConfig creation from environment variables."""
-    monkeypatch.setenv("DB_HOST", "localhost")
-    monkeypatch.setenv("DB_PORT", "5433")
-    monkeypatch.setenv("DB_NAME", "test_db")
+def test_database_config_from_config(monkeypatch):
+    """Test DatabaseConfig creation with environment variables for credentials."""
     monkeypatch.setenv("DB_USER", "test_user")
     monkeypatch.setenv("DB_PASSWORD", "test_pass")
     
-    config = DatabaseConfig.from_env()
+    config = DatabaseConfig.from_config()
     
-    assert config.host == "localhost"
-    assert config.port == 5433
-    assert config.name == "test_db"
+    # Non-sensitive config from file
+    assert config.port == 5432
+    assert config.name == "market_intelligence"
+    
+    # Sensitive config from environment
     assert config.user == "test_user"
     assert config.password == "test_pass"
+
+
+def test_app_config_from_config():
+    """Test AppConfig creation from config file."""
+    config = AppConfig.from_config()
+    
+    assert config.title is not None
+    assert config.layout in ["wide", "centered"]
+    assert isinstance(config.async_queries_enabled, bool)
 
 
 def test_osc_colors():

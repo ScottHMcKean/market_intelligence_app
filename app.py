@@ -1,9 +1,16 @@
 """Market Intelligence Streamlit App with OSC Branding."""
+
 import streamlit as st
 from typing import Optional
 import time
 
-from src.config import DatabricksConfig, DatabaseConfig, OSC_COLORS, OSC_FONTS
+from src.config import (
+    DatabricksConfig,
+    DatabaseConfig,
+    AppConfig,
+    OSC_COLORS,
+    OSC_FONTS,
+)
 from src.databricks_client import (
     get_workspace_client,
     call_endpoint,
@@ -23,13 +30,7 @@ from src.database import (
 )
 
 
-# Page configuration
-st.set_page_config(
-    page_title="OSC Market Intelligence",
-    page_icon="📊",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
+# Note: Page config will be set in main() after loading app_config
 
 
 def apply_osc_branding():
@@ -142,9 +143,10 @@ def check_database_connection(db_config: DatabaseConfig) -> bool:
     """Check if database connection is available."""
     if not db_config.host or not db_config.user:
         return False
-    
+
     try:
         from src.database import get_connection
+
         with get_connection(db_config):
             return True
     except Exception as e:
@@ -170,12 +172,12 @@ def render_message(role: str, content: str, status: Optional[str] = None):
     """Render a chat message."""
     css_class = "user-message" if role == "user" else "assistant-message"
     status_indicator = ""
-    
+
     if status == "pending":
         status_indicator = '<span class="status-pending">⏳ Processing...</span><br>'
     elif status == "complete":
         status_indicator = '<span class="status-complete">✓ Complete</span><br>'
-    
+
     st.markdown(
         f"""
         <div class="chat-message {css_class}">
@@ -190,16 +192,25 @@ def render_message(role: str, content: str, status: Optional[str] = None):
 
 def main():
     """Main application."""
+    # Load configurations first
+    app_config = AppConfig.from_config()
+    db_config = DatabaseConfig.from_config()
+    databricks_config = DatabricksConfig.from_config()
+
+    # Set page config using app config
+    st.set_page_config(
+        page_title=app_config.title,
+        page_icon="📊",
+        layout=app_config.layout,
+        initial_sidebar_state="expanded",
+    )
+
     # Apply branding
     apply_osc_branding()
-    
+
     # Initialize session state
     initialize_session_state()
-    
-    # Load configurations
-    db_config = DatabaseConfig.from_env()
-    databricks_config = DatabricksConfig.from_env()
-    
+
     # Initialize Databricks client
     try:
         if st.session_state.client is None:
@@ -209,54 +220,54 @@ def main():
         st.error(f"Failed to authenticate with Databricks: {e}")
         st.info("Please ensure your Databricks credentials are configured correctly.")
         st.stop()
-    
+
     # Check database connection
     if not st.session_state.db_enabled:
         st.session_state.db_enabled = check_database_connection(db_config)
         if st.session_state.db_enabled:
             init_database(db_config)
-    
+
     # Render header
     render_header(st.session_state.user_info)
-    
+
     # Sidebar
     with st.sidebar:
         st.header("Settings")
-        
+
         # Conversation management
         if st.session_state.db_enabled:
             st.subheader("Conversations")
-            
+
             if st.button("➕ New Conversation"):
                 st.session_state.conversation_id = create_conversation(
-                    db_config,
-                    st.session_state.user_info["user_id"]
+                    db_config, st.session_state.user_info["user_id"]
                 )
                 st.session_state.messages = []
                 st.rerun()
-            
+
             # Load existing conversations
             if st.session_state.conversation_id:
                 st.info(f"Conversation ID: {st.session_state.conversation_id}")
-                
+
                 if st.button("🔄 Refresh Messages"):
                     messages = get_conversation_messages(
-                        db_config,
-                        st.session_state.conversation_id
+                        db_config, st.session_state.conversation_id
                     )
                     st.session_state.messages = messages
                     st.rerun()
         else:
             st.warning("Database not configured. Conversation history disabled.")
-        
+
         st.divider()
-        
+
         # Query options
         st.subheader("Query Options")
-        use_async = st.checkbox("Enable async mode for long queries", value=False)
-        
+        use_async = st.checkbox(
+            "Enable async mode for long queries", value=app_config.async_queries_enabled
+        )
+
         st.divider()
-        
+
         # About
         st.subheader("About")
         st.markdown(
@@ -271,25 +282,24 @@ def main():
             - 📊 Market intelligence insights
             """
         )
-    
+
     # Main chat interface
     st.header("Ask a Question")
-    
+
     # Display existing messages
     if st.session_state.db_enabled and st.session_state.conversation_id:
         if not st.session_state.messages:
             st.session_state.messages = get_conversation_messages(
-                db_config,
-                st.session_state.conversation_id
+                db_config, st.session_state.conversation_id
             )
-    
+
     for msg in st.session_state.messages:
         render_message("user", msg["question"])
         if msg["answer"]:
             render_message("assistant", msg["answer"], msg.get("status"))
         elif msg.get("status") == "pending":
             render_message("assistant", "Processing your query...", "pending")
-    
+
     # Input form
     with st.form(key="question_form", clear_on_submit=True):
         user_question = st.text_area(
@@ -297,30 +307,30 @@ def main():
             placeholder="e.g., What are the latest market trends in Canadian securities?",
             height=100,
         )
-        submit_button = st.form_submit_button("Submit Question", use_container_width=True)
-    
+        submit_button = st.form_submit_button(
+            "Submit Question", use_container_width=True
+        )
+
     if submit_button and user_question:
         # Create conversation if needed
         if st.session_state.db_enabled and not st.session_state.conversation_id:
             st.session_state.conversation_id = create_conversation(
-                db_config,
-                st.session_state.user_info["user_id"]
+                db_config, st.session_state.user_info["user_id"]
             )
-        
+
         # Add message to UI
         render_message("user", user_question)
-        
+
         # Process question
         with st.spinner("Processing your question..."):
             try:
                 if use_async:
                     # Async query
                     query_id = call_endpoint_async(
-                        st.session_state.client,
                         databricks_config,
                         user_question,
                     )
-                    
+
                     # Save to database
                     if st.session_state.db_enabled:
                         message_id = add_message(
@@ -331,20 +341,25 @@ def main():
                             status="pending",
                             query_id=query_id,
                         )
-                    
-                    render_message("assistant", f"Query submitted (ID: {query_id}). Check back later for results.", "pending")
-                    st.info("Your query is being processed. Use the 'Refresh Messages' button to check for updates.")
-                
+
+                    render_message(
+                        "assistant",
+                        f"Query submitted (ID: {query_id}). Check back later for results.",
+                        "pending",
+                    )
+                    st.info(
+                        "Your query is being processed. Use the 'Refresh Messages' button to check for updates."
+                    )
+
                 else:
                     # Synchronous query
                     response = call_endpoint(
-                        st.session_state.client,
                         databricks_config,
                         user_question,
                     )
-                    
+
                     answer = format_response(response)
-                    
+
                     # Save to database
                     if st.session_state.db_enabled:
                         message_id = add_message(
@@ -355,18 +370,17 @@ def main():
                             answer=answer,
                             status="complete",
                         )
-                    
+
                     render_message("assistant", answer, "complete")
-                
+
                 # Reload messages
                 if st.session_state.db_enabled and st.session_state.conversation_id:
                     st.session_state.messages = get_conversation_messages(
-                        db_config,
-                        st.session_state.conversation_id
+                        db_config, st.session_state.conversation_id
                     )
-                
+
                 st.rerun()
-            
+
             except Exception as e:
                 st.error(f"Error processing question: {e}")
                 st.info("Please check your configuration and try again.")
@@ -374,4 +388,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -9,17 +9,17 @@ Streamlit application for market intelligence with Databricks integration, OSC b
 uv venv && source .venv/bin/activate
 uv pip install -e .
 
-# Configure .env file
-DATABRICKS_HOST=https://e2-demo-field-eng.cloud.databricks.com
-DATABRICKS_TOKEN=your_token
-ENDPOINT_NAME=mas-1ab024e9-endpoint
+# Edit config.yaml with your settings (no credentials!)
+databricks:
+  host: "e2-demo-field-eng.cloud.databricks.com"
+  endpoint_name: "mas-1ab024e9-endpoint"
 
-# Optional: Database for conversation history
-DB_HOST=your_lakebase_host
-DB_PORT=5432
-DB_NAME=market_intelligence
-DB_USER=your_user
-DB_PASSWORD=your_password
+# Set database credentials as environment variables (optional)
+export DB_USER=your_db_user
+export DB_PASSWORD=your_db_password
+
+# Databricks authentication uses SDK defaults (~/.databrickscfg or environment)
+# See: https://docs.databricks.com/dev-tools/auth.html
 
 # Run
 uv run streamlit run app.py
@@ -41,6 +41,7 @@ src/
 ├── database.py            # Conversation history (Lakebase)
 ├── databricks_client.py   # Endpoint calls & auth
 app.py                     # Main Streamlit app
+config.yaml                # Non-sensitive configuration
 test_components.ipynb      # Interactive testing
 tests/                     # Unit tests (19 tests, 100% pass)
 ```
@@ -71,18 +72,22 @@ uv run ruff check src tests      # Lint
 
 ## Authentication
 
-Uses Databricks SDK default chain:
-1. Environment variables (`DATABRICKS_HOST`, `DATABRICKS_TOKEN`)
-2. Configuration profile (`~/.databrickscfg`)
+**Databricks:** Uses SDK default chain (no credentials in config files)
+1. Configuration profile (`~/.databrickscfg`) - recommended
+2. Environment variables (`DATABRICKS_HOST`, `DATABRICKS_TOKEN`)
 3. OAuth for interactive sessions
 
-Get token: Databricks → User Settings → Developer → Access Tokens
+**Database:** Credentials from environment only
+- `DB_USER` and `DB_PASSWORD` environment variables
+- Or Databricks secrets in production
+
+Get Databricks token: Workspace → User Settings → Developer → Access Tokens
 
 ## Troubleshooting
 
-**Authentication errors:** Check token hasn't expired, verify host URL  
-**Database issues:** App works without DB, history just won't persist  
-**Endpoint errors:** Verify endpoint name and it's running in workspace  
+**Authentication errors:** Check `~/.databrickscfg` exists or set `DATABRICKS_HOST`/`DATABRICKS_TOKEN` env vars  
+**Database issues:** App works without DB, history just won't persist. Check `DB_USER`/`DB_PASSWORD` env vars  
+**Endpoint errors:** Verify endpoint name in `config.yaml` and it's running in workspace  
 
 ## Deployment
 
@@ -97,4 +102,4 @@ See: [Databricks Apps documentation](https://docs.databricks.com/apps/index.html
 
 ## Tech Stack
 
-Python 3.10+ • Streamlit • Databricks SDK • PostgreSQL/Lakebase • pytest • uv
+Python 3.10+ • Streamlit • Databricks SDK • MLflow • PostgreSQL/Lakebase • pytest • uv
