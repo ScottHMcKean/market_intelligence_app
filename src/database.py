@@ -1,8 +1,11 @@
 """Database module for managing conversation history."""
+
+import uuid
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from typing import List, Dict, Optional
 from contextlib import contextmanager
+from databricks.sdk import WorkspaceClient
 
 from .config import DatabaseConfig
 
@@ -11,15 +14,18 @@ def init_database(config: DatabaseConfig) -> None:
     """Initialize database schema."""
     with get_connection(config) as conn:
         with conn.cursor() as cursor:
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS conversations (
                     id SERIAL PRIMARY KEY,
                     user_id TEXT NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-            """)
-            
-            cursor.execute("""
+            """
+            )
+
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS messages (
                     id SERIAL PRIMARY KEY,
                     conversation_id INTEGER REFERENCES conversations(id) ON DELETE CASCADE,
@@ -31,31 +37,74 @@ def init_database(config: DatabaseConfig) -> None:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-            """)
-            
-            cursor.execute("""
+            """
+            )
+
+            cursor.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_messages_conversation_id 
                 ON messages(conversation_id)
-            """)
-            
-            cursor.execute("""
+            """
+            )
+
+            cursor.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_messages_query_id 
                 ON messages(query_id)
-            """)
-            
+            """
+            )
+
             conn.commit()
 
 
 @contextmanager
 def get_connection(config: DatabaseConfig):
-    """Get a database connection."""
-    conn = psycopg2.connect(
-        host=config.host,
-        port=config.port,
-        dbname=config.name,
-        user=config.user,
-        password=config.password,
+    """
+    Get a database connection using Databricks WorkspaceClient.
+
+    This generates temporary credentials via the Databricks SDK,
+    eliminating the need for static database credentials.
+    """
+    if not config.instance_name:
+        raise ValueError("Database instance_name not configured")
+
+    # Initialize WorkspaceClient for the specific workspace
+    # Use the databricks_host from config to ensure we connect to the right workspace
+    # We need to explicitly set the host to override the DEFAULT profile
+    from databricks.sdk.core import Config as SDKConfig
+
+    if config.databricks_host:
+        # Create config with explicit host to override .databrickscfg DEFAULT
+        client_config = SDKConfig(
+            host=config.databricks_host, auth_type="databricks-cli"  # Use CLI auth
+        )
+        client = WorkspaceClient(config=client_config)
+    else:
+        # Fall back to default config
+        client = WorkspaceClient()
+
+    # Get current user email
+    user = client.current_user.me()
+    user_email = user.emails[0].value
+
+    # Get database instance details
+    instance = client.database.get_database_instance(name=config.instance_name)
+
+    # Generate temporary credentials
+    credential = client.database.generate_database_credential(
+        request_id=str(uuid.uuid4()), instance_names=[config.instance_name]
     )
+
+    # Create connection parameters
+    connection_params = {
+        "host": instance.read_write_dns,
+        "dbname": config.database_name,
+        "user": user_email,
+        "password": credential.token,
+        "sslmode": "require",
+    }
+
+    conn = psycopg2.connect(**connection_params)
     try:
         yield conn
     finally:
@@ -67,8 +116,7 @@ def create_conversation(config: DatabaseConfig, user_id: str) -> int:
     with get_connection(config) as conn:
         with conn.cursor() as cursor:
             cursor.execute(
-                "INSERT INTO conversations (user_id) VALUES (%s) RETURNING id",
-                (user_id,)
+                "INSERT INTO conversations (user_id) VALUES (%s) RETURNING id", (user_id,)
             )
             conversation_id = cursor.fetchone()[0]
             conn.commit()
@@ -94,7 +142,7 @@ def add_message(
                 VALUES (%s, %s, %s, %s, %s, %s)
                 RETURNING id
                 """,
-                (conversation_id, user_id, question, answer, status, query_id)
+                (conversation_id, user_id, question, answer, status, query_id),
             )
             message_id = cursor.fetchone()[0]
             conn.commit()
@@ -112,27 +160,25 @@ def update_message(
         with conn.cursor() as cursor:
             updates = []
             params = []
-            
+
             if answer is not None:
                 updates.append("answer = %s")
                 params.append(answer)
-            
+
             if status is not None:
                 updates.append("status = %s")
                 params.append(status)
-            
+
             if updates:
                 updates.append("updated_at = CURRENT_TIMESTAMP")
                 params.append(message_id)
-                
+
                 query = f"UPDATE messages SET {', '.join(updates)} WHERE id = %s"
                 cursor.execute(query, params)
                 conn.commit()
 
 
-def get_conversation_messages(
-    config: DatabaseConfig, conversation_id: int
-) -> List[Dict]:
+def get_conversation_messages(config: DatabaseConfig, conversation_id: int) -> List[Dict]:
     """Get all messages from a conversation."""
     with get_connection(config) as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
@@ -143,7 +189,7 @@ def get_conversation_messages(
                 WHERE conversation_id = %s
                 ORDER BY created_at ASC
                 """,
-                (conversation_id,)
+                (conversation_id,),
             )
             return [dict(row) for row in cursor.fetchall()]
 
@@ -159,7 +205,7 @@ def get_message_by_query_id(config: DatabaseConfig, query_id: str) -> Optional[D
                 FROM messages
                 WHERE query_id = %s
                 """,
-                (query_id,)
+                (query_id,),
             )
             row = cursor.fetchone()
             return dict(row) if row else None
@@ -178,7 +224,6 @@ def get_user_conversations(config: DatabaseConfig, user_id: str) -> List[Dict]:
                 GROUP BY c.id, c.created_at
                 ORDER BY c.created_at DESC
                 """,
-                (user_id,)
+                (user_id,),
             )
             return [dict(row) for row in cursor.fetchall()]
-

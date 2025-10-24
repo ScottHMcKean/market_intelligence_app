@@ -1,6 +1,5 @@
 """Configuration module for Market Intelligence App."""
 
-import os
 import yaml
 from dataclasses import dataclass
 from pathlib import Path
@@ -43,31 +42,36 @@ class DatabricksConfig:
 
 @dataclass
 class DatabaseConfig:
-    """Database configuration for Lakebase."""
+    """Database configuration for Lakebase.
 
-    host: str
-    port: int
-    name: str
-    user: str
-    password: str
+    Uses Databricks WorkspaceClient to generate credentials dynamically.
+    No static credentials needed - authentication via Databricks SDK.
+    """
+
+    instance_name: str
+    database_name: str
+    databricks_host: str  # Workspace host where the instance lives
 
     @classmethod
     def from_config(cls):
         """
-        Create configuration from config.yaml and environment variables.
+        Create configuration from config.yaml.
 
-        Sensitive credentials (user, password) come from environment variables only.
-        Non-sensitive settings come from config.yaml.
+        Credentials are generated dynamically via WorkspaceClient,
+        so no environment variables needed for database access.
         """
         db_config = CONFIG_DATA.get("database", {})
+        databricks_config = CONFIG_DATA.get("databricks", {})
+
+        # Get the databricks host for the database connection
+        host = databricks_config.get("host", "")
+        if host and not host.startswith("http"):
+            host = f"https://{host}"
 
         return cls(
-            host=db_config.get("host", ""),
-            port=db_config.get("port", 5432),
-            name=db_config.get("name", "market_intelligence"),
-            # Credentials come from environment only (or Databricks secrets)
-            user=os.getenv("DB_USER", ""),
-            password=os.getenv("DB_PASSWORD", ""),
+            instance_name=db_config.get("instance_name", ""),
+            database_name=db_config.get("database_name", "databricks_postgres"),
+            databricks_host=host,
         )
 
 

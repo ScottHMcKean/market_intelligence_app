@@ -117,6 +117,28 @@ def test_format_response_answer():
     assert formatted == "Test answer"
 
 
+def test_format_response_output_list():
+    """Test formatting MLflow deployments response with output list."""
+    response = {
+        "object": "response",
+        "output": [
+            {
+                "type": "message",
+                "content": [
+                    {
+                        "text": "Test response text",
+                        "type": "output_text"
+                    }
+                ],
+                "role": "assistant"
+            }
+        ],
+        "id": "test-id-123"
+    }
+    formatted = format_response(response)
+    assert formatted == "Test response text"
+
+
 def test_format_response_generic():
     """Test formatting generic response."""
     response = {"custom_field": "Custom value"}

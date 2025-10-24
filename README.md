@@ -14,11 +14,12 @@ databricks:
   host: "e2-demo-field-eng.cloud.databricks.com"
   endpoint_name: "mas-1ab024e9-endpoint"
 
-# Set database credentials as environment variables (optional)
-export DB_USER=your_db_user
-export DB_PASSWORD=your_db_password
+database:
+  instance_name: "your-lakebase-instance"
+  database_name: "databricks_postgres"
 
 # Databricks authentication uses SDK defaults (~/.databrickscfg or environment)
+# Database credentials are generated dynamically - no env vars needed!
 # See: https://docs.databricks.com/dev-tools/auth.html
 
 # Run
@@ -28,7 +29,7 @@ uv run streamlit run app.py
 ## Features
 
 - 🔐 Databricks Workspace Client authentication
-- 💬 Conversation history (Lakebase/PostgreSQL)
+- 💬 Conversation history (Lakebase/PostgreSQL with dynamic credentials)
 - ⚡ Async query support for long-running operations
 - 🎨 OSC branding (Primary: #004C97, Secondary: #0066CC)
 - 📊 AI-powered market intelligence via Databricks endpoints
@@ -51,9 +52,31 @@ tests/                     # Unit tests (19 tests, 100% pass)
 **Testing:**
 ```bash
 uv pip install -e ".[dev]"
-uv run pytest                    # Run tests
-uv run pytest --cov=src          # With coverage
-uv run jupyter notebook test_components.ipynb  # Interactive
+
+# Unit tests only (fast, no live connections)
+uv run pytest -m "not integration"
+
+# All tests including integration (requires live connections)
+uv run pytest tests/test_integration.py -v -s
+
+# With coverage
+uv run pytest --cov=src -m "not integration"
+
+# Interactive testing
+uv run jupyter notebook test_components.ipynb
+```
+
+**Integration Tests:**
+
+Integration tests validate against live Databricks and Lakebase instances.
+See [tests/INTEGRATION_TESTS.md](tests/INTEGRATION_TESTS.md) for details.
+
+```bash
+# Run all integration tests
+uv run pytest tests/test_integration.py -v -s
+
+# Run specific test
+uv run pytest tests/test_integration.py::TestEndToEnd -v -s
 ```
 
 **Code Quality:**
@@ -77,16 +100,18 @@ uv run ruff check src tests      # Lint
 2. Environment variables (`DATABRICKS_HOST`, `DATABRICKS_TOKEN`)
 3. OAuth for interactive sessions
 
-**Database:** Credentials from environment only
-- `DB_USER` and `DB_PASSWORD` environment variables
-- Or Databricks secrets in production
+**Database (Lakebase):** Uses WorkspaceClient for dynamic credential generation
+- No static credentials needed!
+- Credentials generated automatically via `client.database.generate_database_credential()`
+- Uses current user's Databricks authentication
+- Temporary tokens for enhanced security
 
 Get Databricks token: Workspace → User Settings → Developer → Access Tokens
 
 ## Troubleshooting
 
 **Authentication errors:** Check `~/.databrickscfg` exists or set `DATABRICKS_HOST`/`DATABRICKS_TOKEN` env vars  
-**Database issues:** App works without DB, history just won't persist. Check `DB_USER`/`DB_PASSWORD` env vars  
+**Database issues:** App works without DB, history just won't persist. Verify `instance_name` in `config.yaml`  
 **Endpoint errors:** Verify endpoint name in `config.yaml` and it's running in workspace  
 
 ## Deployment

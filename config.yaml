@@ -10,11 +10,11 @@ databricks:
   endpoint_name: "mas-1ab024e9-endpoint"
 
 database:
-  # Database host (leave empty to disable conversation history)
-  name: "osc-delete-nov1"
-  host: "instance-4401e5e2-c276-4302-8519-e9c3226ef66b.database.cloud.databricks.com"
-  port: 5432
-  database: "databricks_postgres"
+  # Lakebase instance name (leave empty to disable conversation history)
+  instance_name: "osc-delete-nov1"
+
+  # Database name within the Lakebase instance
+  database_name: "databricks_postgres"
 app:
   # Application title
   title: "OSC Market Intelligence"

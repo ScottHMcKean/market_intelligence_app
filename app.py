@@ -2,7 +2,6 @@
 
 import streamlit as st
 from typing import Optional
-import time
 
 from src.config import (
     DatabricksConfig,
@@ -15,7 +14,6 @@ from src.databricks_client import (
     get_workspace_client,
     call_endpoint,
     call_endpoint_async,
-    check_query_status,
     get_user_info,
     format_response,
 )
@@ -23,10 +21,7 @@ from src.database import (
     init_database,
     create_conversation,
     add_message,
-    update_message,
     get_conversation_messages,
-    get_message_by_query_id,
-    get_user_conversations,
 )
 
 
@@ -141,7 +136,7 @@ def initialize_session_state():
 
 def check_database_connection(db_config: DatabaseConfig) -> bool:
     """Check if database connection is available."""
-    if not db_config.host or not db_config.user:
+    if not db_config.instance_name:
         return False
 
     try:
@@ -307,9 +302,7 @@ def main():
             placeholder="e.g., What are the latest market trends in Canadian securities?",
             height=100,
         )
-        submit_button = st.form_submit_button(
-            "Submit Question", use_container_width=True
-        )
+        submit_button = st.form_submit_button("Submit Question", use_container_width=True)
 
     if submit_button and user_question:
         # Create conversation if needed
@@ -333,7 +326,7 @@ def main():
 
                     # Save to database
                     if st.session_state.db_enabled:
-                        message_id = add_message(
+                        add_message(
                             db_config,
                             st.session_state.conversation_id,
                             st.session_state.user_info["user_id"],
@@ -362,7 +355,7 @@ def main():
 
                     # Save to database
                     if st.session_state.db_enabled:
-                        message_id = add_message(
+                        add_message(
                             db_config,
                             st.session_state.conversation_id,
                             st.session_state.user_info["user_id"],
