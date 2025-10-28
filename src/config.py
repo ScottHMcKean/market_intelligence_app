@@ -23,6 +23,7 @@ class DatabricksConfig:
 
     host: str
     endpoint_name: str
+    experiment_name: str
 
     @classmethod
     def from_config(cls):
@@ -37,6 +38,7 @@ class DatabricksConfig:
         return cls(
             host=host,
             endpoint_name=db_config.get("endpoint_name", "mas-1ab024e9-endpoint"),
+            experiment_name=db_config.get("experiment_name", "mas-1ab024e9-dev-experiment"),
         )
 
 
@@ -81,7 +83,6 @@ class AppConfig:
 
     title: str
     layout: str
-    async_queries_enabled: bool
 
     @classmethod
     def from_config(cls):
@@ -91,21 +92,22 @@ class AppConfig:
         return cls(
             title=app_config.get("title", "OSC Market Intelligence"),
             layout=app_config.get("layout", "wide"),
-            async_queries_enabled=app_config.get("async_queries_enabled", True),
         )
 
 
 # Ontario Securities Commission Branding
+# Official OSC colors from www.osc.ca
 OSC_COLORS = {
-    "primary": "#004C97",  # OSC Blue
-    "secondary": "#0066CC",  # Light Blue
-    "accent": "#FF6B35",  # Accent Orange
-    "background": "#F8F9FA",  # Light Gray Background
-    "text": "#212529",  # Dark Gray Text
+    "primary": "#2e6378",  # OSC Primary Blue
+    "secondary": "#2A7DE1",  # Light Blue - links, hover states
+    "accent": "#E31837",  # Red accent
+    "background": "#F5F5F5",  # Neutral Gray background
     "white": "#FFFFFF",
+    "text": "#333333",  # Black/Charcoal body text
+    "border": "#DDDDDD",  # Border gray
 }
 
 OSC_FONTS = {
-    "primary": "Arial, sans-serif",
-    "secondary": "Helvetica, sans-serif",
+    "primary": "'Open Sans', 'Helvetica Neue', Arial, sans-serif",
+    "secondary": "Arial, sans-serif",
 }

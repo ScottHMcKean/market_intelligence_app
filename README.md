@@ -29,10 +29,14 @@ uv run streamlit run app.py
 ## Features
 
 - 🔐 Databricks Workspace Client authentication
-- 💬 Conversation history (Lakebase/PostgreSQL with dynamic credentials)
+- 👤 Personalized user welcome and authentication
+- 💬 Conversation history with sidebar navigation (Lakebase/PostgreSQL with dynamic credentials)
+- 📜 Browse past conversations by user
 - ⚡ Async query support for long-running operations
-- 🎨 OSC branding (Primary: #004C97, Secondary: #0066CC)
+- 🎨 OSC branding with official colors (Primary: #003DA5, from https://www.osc.ca/en)
+- 🖼️ OSC logo integration
 - 📊 AI-powered market intelligence via Databricks endpoints
+- 🎯 Modern, responsive UI with Open Sans font
 
 ## Architecture
 

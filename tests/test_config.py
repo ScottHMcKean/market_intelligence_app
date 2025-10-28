@@ -32,15 +32,16 @@ def test_app_config_from_config():
 
 def test_osc_colors():
     """Test OSC color configuration."""
-    assert OSC_COLORS["primary"] == "#004C97"
-    assert OSC_COLORS["secondary"] == "#0066CC"
-    assert OSC_COLORS["accent"] == "#FF6B35"
-    assert OSC_COLORS["background"] == "#F8F9FA"
-    assert OSC_COLORS["text"] == "#212529"
+    assert OSC_COLORS["primary"] == "#2e6378"  # OSC Primary Blue
+    assert OSC_COLORS["secondary"] == "#2A7DE1"  # Light Blue
+    assert OSC_COLORS["accent"] == "#E31837"
+    assert OSC_COLORS["background"] == "#F5F5F5"
     assert OSC_COLORS["white"] == "#FFFFFF"
+    assert OSC_COLORS["text"] == "#333333"
+    assert OSC_COLORS["border"] == "#DDDDDD"
 
 
 def test_osc_fonts():
     """Test OSC font configuration."""
-    assert "Arial" in OSC_FONTS["primary"]
-    assert "Helvetica" in OSC_FONTS["secondary"]
+    assert "Open Sans" in OSC_FONTS["primary"]
+    assert "Arial" in OSC_FONTS["secondary"]

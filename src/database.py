@@ -19,9 +19,25 @@ def init_database(config: DatabaseConfig) -> None:
                 CREATE TABLE IF NOT EXISTS conversations (
                     id SERIAL PRIMARY KEY,
                     user_id TEXT NOT NULL,
+                    mlflow_trace_id TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """
+            )
+
+            # Add mlflow_trace_id column if it doesn't exist (for existing databases)
+            cursor.execute(
+                """
+                DO $$ 
+                BEGIN 
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name='conversations' AND column_name='mlflow_trace_id'
+                    ) THEN
+                        ALTER TABLE conversations ADD COLUMN mlflow_trace_id TEXT;
+                    END IF;
+                END $$;
+                """
             )
 
             cursor.execute(
@@ -34,6 +50,7 @@ def init_database(config: DatabaseConfig) -> None:
                     answer TEXT,
                     status TEXT DEFAULT 'pending',
                     query_id TEXT,
+                    trace_id TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
@@ -111,16 +128,32 @@ def get_connection(config: DatabaseConfig):
         conn.close()
 
 
-def create_conversation(config: DatabaseConfig, user_id: str) -> int:
+def create_conversation(
+    config: DatabaseConfig, user_id: str, mlflow_trace_id: Optional[str] = None
+) -> int:
     """Create a new conversation."""
     with get_connection(config) as conn:
         with conn.cursor() as cursor:
             cursor.execute(
-                "INSERT INTO conversations (user_id) VALUES (%s) RETURNING id", (user_id,)
+                "INSERT INTO conversations (user_id, mlflow_trace_id) VALUES (%s, %s) RETURNING id",
+                (user_id, mlflow_trace_id),
             )
             conversation_id = cursor.fetchone()[0]
             conn.commit()
             return conversation_id
+
+
+def update_conversation_trace(
+    config: DatabaseConfig, conversation_id: int, mlflow_trace_id: str
+) -> None:
+    """Update the MLflow trace ID for a conversation."""
+    with get_connection(config) as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "UPDATE conversations SET mlflow_trace_id = %s WHERE id = %s",
+                (mlflow_trace_id, conversation_id),
+            )
+            conn.commit()
 
 
 def add_message(
@@ -131,6 +164,7 @@ def add_message(
     answer: Optional[str] = None,
     status: str = "pending",
     query_id: Optional[str] = None,
+    trace_id: Optional[str] = None,
 ) -> int:
     """Add a message to a conversation."""
     with get_connection(config) as conn:
@@ -138,11 +172,11 @@ def add_message(
             cursor.execute(
                 """
                 INSERT INTO messages 
-                (conversation_id, user_id, question, answer, status, query_id)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                (conversation_id, user_id, question, answer, status, query_id, trace_id)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
                 """,
-                (conversation_id, user_id, question, answer, status, query_id),
+                (conversation_id, user_id, question, answer, status, query_id, trace_id),
             )
             message_id = cursor.fetchone()[0]
             conn.commit()

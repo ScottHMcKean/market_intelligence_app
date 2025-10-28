@@ -1,0 +1,7 @@
+[theme]
+primaryColor = "#2e6378"  # OSC Primary Blue
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F5F5F5"
+textColor = "#333333"
+font = "sans serif"
+

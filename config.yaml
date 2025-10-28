@@ -9,6 +9,10 @@ databricks:
   # Serving endpoint name
   endpoint_name: "mas-1ab024e9-endpoint"
 
+  # MLflow experiment name for tracing (full path)
+  # This is where the agent logs its traces
+  experiment_name: "/Users/jag.jasani@databricks.com/mas-1ab024e9-dev-experiment"
+
 database:
   # Lakebase instance name (leave empty to disable conversation history)
   instance_name: "osc-delete-nov1"
@@ -21,6 +25,3 @@ app:
 
   # Page layout: "wide" or "centered"
   layout: "wide"
-
-  # Enable async query support
-  async_queries_enabled: true
