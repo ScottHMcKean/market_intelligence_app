@@ -797,7 +797,20 @@ def main():
                 # Store trace_id in session state for feedback
                 if trace_id:
                     st.session_state.last_trace_id = trace_id
-                    print(f"📋 Stored trace_id: {trace_id}")
+                    print(f"📋 Stored local trace_id: {trace_id}")
+
+                    # Try to get the actual MLflow trace ID from the experiment
+                    try:
+                        from src.mlflow_tracing import setup_mlflow, get_most_recent_trace_id
+
+                        setup_mlflow(databricks_config)
+                        mlflow_trace_id = get_most_recent_trace_id(databricks_config)
+                        if mlflow_trace_id and mlflow_trace_id.startswith("tr-"):
+                            trace_id = mlflow_trace_id
+                            st.session_state.last_trace_id = trace_id
+                            print(f"📋 Found MLflow trace_id: {trace_id}")
+                    except Exception as e:
+                        print(f"⚠️ Could not fetch MLflow trace ID: {e}")
 
         except Exception as stream_error:
             st.error(f"Streaming error: {stream_error}")

@@ -42,7 +42,7 @@ def get_most_recent_trace_id(config: DatabricksConfig) -> Optional[str]:
         if traces is not None and not traces.empty:
             # traces is a DataFrame, get the first row
             trace_row = traces.iloc[0]
-            trace_id = trace_row.get("request_id")
+            trace_id = trace_row.get("trace_id")  # Changed from request_id to trace_id
             print(f"✅ Found most recent trace: {trace_id}")
             return trace_id
         else:

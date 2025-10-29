@@ -154,8 +154,8 @@ def create_pdf_report(
             aspect = img_height / float(img_width)
 
             # Set max width and calculate height maintaining aspect ratio
-            max_width = 2.5 * inch
-            max_height = 0.8 * inch
+            max_width = 2.0 * inch
+            max_height = 0.6 * inch
 
             # Scale to fit within max dimensions
             if aspect * max_width > max_height:
