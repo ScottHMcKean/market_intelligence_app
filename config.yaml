@@ -19,11 +19,6 @@ database:
 
   # Database name within the Lakebase instance
   database_name: "databricks_postgres"
-
-  # Service principal ID for database authentication
-  # This is the UUID of the app's service principal (from "role does not exist" error)
-  # Required for Databricks Apps deployment - leave empty for local development
-  service_principal_id: "2ab35418-2e68-42a1-8911-957f8ea7b1a0"
 app:
   # Application title
   title: "OSC Market Intelligence"

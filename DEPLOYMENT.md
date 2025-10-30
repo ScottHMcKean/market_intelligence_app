@@ -187,13 +187,36 @@ If the database connection fails:
    FATAL: An oauth token was supplied but no role security label was configured
    ```
    
-   This error means the role exists but there's a mismatch between the username and OAuth token identity.
+   This error means OAuth token authentication requires the `databricks_iam` security label provider to be enabled in your Lakebase instance. This is a Lakebase configuration issue.
    
-   **The Fix (already implemented in the code):**
-   - The app now uses `user.id` (the service principal UUID) as the database username
-   - This matches the OAuth token identity
-   - The username must be the same as the UUID in the "role does not exist" error
-   - Redeploy the app after updating the code
+   **Solution A - Enable OAuth Security Labels (Recommended for Production):**
+   - Contact Databricks support
+   - Request to enable the `databricks_iam` security label provider on your Lakebase instance
+   - This allows OAuth token authentication for service principals
+   
+   **Solution B - Use Static Credentials (Workaround):**
+   
+   1. Create a dedicated PostgreSQL user in your Lakebase instance:
+   ```sql
+   -- Connect to your Lakebase instance as admin
+   CREATE ROLE app_user WITH LOGIN PASSWORD 'your-secure-password';
+   GRANT CONNECT ON DATABASE databricks_postgres TO app_user;
+   GRANT USAGE ON SCHEMA public TO app_user;
+   GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO app_user;
+   GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO app_user;
+   ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO app_user;
+   ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON SEQUENCES TO app_user;
+   ```
+   
+   2. Set environment variables in your Databricks App:
+   ```bash
+   LAKEBASE_DB_USER=app_user
+   LAKEBASE_DB_PASSWORD=your-secure-password
+   ```
+   
+   3. The app will automatically fall back to static credentials when OAuth is not available
+   
+   4. Deploy and restart your app
 
 3. **Verify Lakebase instance:**
    - Instance exists and is running
