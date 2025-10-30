@@ -117,6 +117,12 @@ Get Databricks token: Workspace → User Settings → Developer → Access Token
 **Authentication errors:** Check `~/.databrickscfg` exists or set `DATABRICKS_HOST`/`DATABRICKS_TOKEN` env vars  
 **Database issues:** App works without DB, history just won't persist. Verify `instance_name` in `config.yaml`  
 **Endpoint errors:** Verify endpoint name in `config.yaml` and it's running in workspace  
+**"WorkspaceClient has no attribute 'database'":** This indicates an outdated databricks-sdk version
+- Required: `databricks-sdk>=0.40.0` (for Lakebase support)
+- Check your version: `uv run python -c "from databricks.sdk import WorkspaceClient; c = WorkspaceClient(); print(hasattr(c, 'database'))"`
+- Should print `True` if installed correctly
+- If running without `uv run`, ensure you're using the correct Python environment with the updated SDK
+- Run test: `uv run python test_database_attr.py` to verify installation  
 
 ## Deployment
 

@@ -88,6 +88,13 @@ def get_connection(config: DatabaseConfig):
     # Initialize WorkspaceClient for the specific workspace
     # Auto-detect authentication method (works locally and in Databricks)
     from databricks.sdk.core import Config as SDKConfig
+    import databricks.sdk
+
+    # Check SDK version for debugging
+    try:
+        sdk_version = getattr(databricks.sdk, '__version__', 'unknown')
+    except:
+        sdk_version = 'unknown'
 
     if config.databricks_host:
         # Create config with explicit host, let SDK auto-detect auth method
@@ -98,6 +105,15 @@ def get_connection(config: DatabaseConfig):
     else:
         # Fall back to default config
         client = WorkspaceClient()
+    
+    # Verify that the database API is available
+    if not hasattr(client, 'database'):
+        raise AttributeError(
+            f"'WorkspaceClient' object has no attribute 'database'. "
+            f"This feature requires databricks-sdk>=0.40.0. "
+            f"Current SDK version: {sdk_version}. "
+            f"Please upgrade: pip install --upgrade 'databricks-sdk>=0.40.0'"
+        )
 
     # Get current user email
     user = client.current_user.me()

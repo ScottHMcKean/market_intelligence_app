@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Market Intelligence Streamlit App with Databricks Integration"
 requires-python = ">=3.10"
 dependencies = [
-    "databricks-sdk>=0.20.0",
+    "databricks-sdk>=0.40.0",
     "streamlit>=1.30.0",
     "psycopg2-binary>=2.9.9",
     "pyyaml>=6.0.0",

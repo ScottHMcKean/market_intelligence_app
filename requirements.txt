@@ -1,7 +1,7 @@
 # Market Intelligence App - Production Dependencies
 # Install with: pip install -r requirements.txt
 
-databricks-sdk>=0.20.0
+databricks-sdk>=0.40.0
 streamlit>=1.30.0
 psycopg2-binary>=2.9.9
 pyyaml>=6.0.0
