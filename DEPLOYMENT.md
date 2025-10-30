@@ -36,11 +36,21 @@ database:
   instance_name: "your-lakebase-instance"              # Lakebase instance name
   database_name: "databricks_postgres"                 # Database name (usually this)
   databricks_host: "https://your-workspace.cloud.databricks.com"  # Same as above
+  
+  # CRITICAL: Service principal ID for database authentication
+  # This is the UUID that appears in the "role does not exist" error
+  # Get this from your first deployment attempt error message
+  service_principal_id: "2ab35418-2e68-42a1-8911-957f8ea7b1a0"  # Replace with your UUID
 
 app:
   title: "Market Surveillance Analyst"
   layout: "wide"
 ```
+
+**Important:** The `service_principal_id` is required for Databricks Apps deployments. This UUID must match:
+- The role you created in PostgreSQL
+- The UUID from the "role does not exist" error message
+- The app's service principal identity (not your user ID)
 
 ### Step 3: Deploy to Databricks Apps
 

@@ -53,6 +53,7 @@ class DatabaseConfig:
     instance_name: str
     database_name: str
     databricks_host: str  # Workspace host where the instance lives
+    service_principal_id: str = ""  # App service principal UUID for database auth
 
     @classmethod
     def from_config(cls):
@@ -74,6 +75,7 @@ class DatabaseConfig:
             instance_name=db_config.get("instance_name", ""),
             database_name=db_config.get("database_name", "databricks_postgres"),
             databricks_host=host,
+            service_principal_id=db_config.get("service_principal_id", ""),
         )
 
 

@@ -130,31 +130,72 @@ def get_connection(config: DatabaseConfig):
         f"🔍 Credential attributes: {[attr for attr in dir(credential) if not attr.startswith('_')]}"
     )
 
-    # Get current user to determine identity
-    user = client.current_user.me()
-    print(f"🔍 User object type: {type(user)}")
-    print(f"🔍 User attributes: {[attr for attr in dir(user) if not attr.startswith('_')]}")
-
     # Determine the database username
-    # For service principals (apps), we need to use the service principal UUID
-    # For regular users, we can use their email
-    if hasattr(user, "id") and user.id:
-        # Use the ID (UUID) - this works for both service principals and users
-        # The OAuth token is tied to this identity
-        db_username = user.id
-        print(f"✓ Using user.id (OAuth identity): {db_username}")
-    elif hasattr(user, "emails") and user.emails:
-        # Fallback to email for regular users
-        db_username = user.emails[0].value
-        print(f"✓ Using user.emails: {db_username}")
-    elif hasattr(user, "user_name") and user.user_name:
-        # Fallback to username
-        db_username = user.user_name
-        print(f"✓ Using user.user_name: {db_username}")
-    else:
+    # For Databricks Apps, the OAuth token is tied to the APP's service principal, not the user
+    # We need to find the app's service principal UUID
+
+    db_username = None
+
+    # Option 1: Check environment variables that Databricks Apps might set
+    import os
+
+    app_service_principal_id = os.environ.get("DATABRICKS_SERVICE_PRINCIPAL_ID")
+    app_client_id = os.environ.get("DATABRICKS_CLIENT_ID")
+
+    print(f"🔍 Environment variables:")
+    print(f"   DATABRICKS_SERVICE_PRINCIPAL_ID: {app_service_principal_id}")
+    print(f"   DATABRICKS_CLIENT_ID: {app_client_id}")
+
+    if app_service_principal_id:
+        db_username = app_service_principal_id
+        print(f"✓ Using app service principal ID from environment: {db_username}")
+    elif app_client_id:
+        db_username = app_client_id
+        print(f"✓ Using app client ID from environment: {db_username}")
+
+    # Option 2: Check WorkspaceClient config for OAuth credentials
+    if not db_username and hasattr(client, "config"):
+        print(
+            f"🔍 WorkspaceClient config attributes: {[attr for attr in dir(client.config) if not attr.startswith('_')]}"
+        )
+
+        # Check various config fields that might contain the service principal ID
+        if hasattr(client.config, "client_id") and client.config.client_id:
+            db_username = client.config.client_id
+            print(f"✓ Using config.client_id: {db_username}")
+        elif hasattr(client.config, "azure_client_id") and client.config.azure_client_id:
+            db_username = client.config.azure_client_id
+            print(f"✓ Using config.azure_client_id: {db_username}")
+
+    # Option 3: Try to get the service principal that owns this workspace client
+    if not db_username:
+        try:
+            # The current_user.me() returns the END USER, not the app
+            # We need the app's identity instead
+            user = client.current_user.me()
+            print(f"🔍 Current user (end user, not app): {getattr(user, 'user_name', 'N/A')}")
+            print(f"🔍 Current user ID: {getattr(user, 'id', 'N/A')}")
+
+            # For now, since we can't reliably get the service principal UUID,
+            # we'll use a hardcoded approach or configuration
+            # This needs to be the same UUID as in the "role does not exist" error
+            print(f"⚠️  Could not automatically determine app service principal UUID")
+            print(f"   The OAuth token is for the app's service principal, not the current user")
+        except Exception as e:
+            print(f"⚠️  Error getting user info: {e}")
+
+    # Option 4: Check if it's set in the database config
+    if not db_username and hasattr(config, "service_principal_id") and config.service_principal_id:
+        db_username = config.service_principal_id
+        print(f"✓ Using service_principal_id from config: {db_username}")
+
+    if not db_username:
         raise ValueError(
-            "Could not determine database username. "
-            "The user object has no id, email, or user_name."
+            "Could not determine app service principal UUID for database connection. "
+            "The OAuth token is issued for the app's service principal, not the current user. "
+            "Please set DATABRICKS_SERVICE_PRINCIPAL_ID environment variable or "
+            "add service_principal_id to your database config in config.yaml. "
+            "Use the UUID from the 'role does not exist' error message."
         )
 
     # Create connection parameters
