@@ -28,9 +28,21 @@ def get_openai_client(config: DatabricksConfig) -> OpenAI:
     """
     # Get Databricks token from workspace client
     workspace_client = get_workspace_client()
+
+    # Try to get token from the workspace client config
     token = workspace_client.config.token
 
-    # If no token from config, try to get it from databricks CLI
+    # If no token, try to authenticate and get one
+    if not token:
+        try:
+            # Force authentication by making a simple API call
+            workspace_client.current_user.me()
+            # Try to get token again after authentication
+            token = workspace_client.config.token
+        except Exception as e:
+            print(f"⚠️ Could not authenticate workspace client: {e}")
+
+    # If still no token from config, try to get it from databricks CLI (local development)
     if not token:
         try:
             import subprocess
@@ -47,6 +59,9 @@ def get_openai_client(config: DatabricksConfig) -> OpenAI:
                 token = token_data.get("access_token", "")
         except Exception:
             pass
+
+    if not token:
+        raise ValueError("Could not obtain Databricks authentication token")
 
     # Create OpenAI client
     client = OpenAI(api_key=token, base_url=f"{config.host}/serving-endpoints")
@@ -77,7 +92,7 @@ def call_endpoint(
 
     print(f"🔄 Request to: {config.endpoint_name}")
     print(f"📤 Question: {question[:100]}...")
-    
+
     # Build message list with conversation history
     messages = []
     if conversation_history:
@@ -87,15 +102,12 @@ def call_endpoint(
             if msg.get("answer"):
                 messages.append({"role": "assistant", "content": msg["answer"]})
         print(f"📜 Including {len(conversation_history)} previous messages")
-    
+
     # Add current question
     messages.append({"role": "user", "content": question})
 
     # Make the request
-    response = client.responses.create(
-        model=config.endpoint_name, 
-        input=messages
-    )
+    response = client.responses.create(model=config.endpoint_name, input=messages)
 
     print(f"✅ Response received")
 
@@ -122,14 +134,14 @@ def call_endpoint_stream(
     """
     # Get the current MLflow span to extract trace_id
     trace_id = None
-    
+
     try:
         # Get OpenAI client
         client = get_openai_client(config)
 
         print(f"🔄 Streaming request to: {config.endpoint_name}")
         print(f"📤 Question: {question[:100]}...")
-        
+
         # Build message list with conversation history
         messages = []
         if conversation_history:
@@ -139,7 +151,7 @@ def call_endpoint_stream(
                 if msg.get("answer"):
                     messages.append({"role": "assistant", "content": msg["answer"]})
             print(f"📜 Including {len(conversation_history)} previous messages")
-        
+
         # Add current question
         messages.append({"role": "user", "content": question})
 
@@ -149,9 +161,10 @@ def call_endpoint_stream(
             input=messages,
             stream=True,
         )
-        
+
         # Generate a simple trace_id for now (can be enhanced later)
         import uuid
+
         trace_id = str(uuid.uuid4())
         print(f"🔍 Generated trace_id: {trace_id}")
 
@@ -175,7 +188,7 @@ def call_endpoint_stream(
                         yield text
 
             print(f"✅ Streaming complete: {chunk_count} chunks received")
-        
+
         return stream_generator(), trace_id
 
     except Exception as e:
@@ -186,10 +199,10 @@ def call_endpoint_stream(
         warnings.warn(f"Streaming failed: {e}. Falling back to non-streaming.")
         response = call_endpoint(config, question, max_tokens, conversation_history)
         formatted = format_response(response)
-        
+
         def fallback_generator():
             yield formatted
-        
+
         return fallback_generator(), trace_id
 
 

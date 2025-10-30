@@ -86,15 +86,14 @@ def get_connection(config: DatabaseConfig):
         raise ValueError("Database instance_name not configured")
 
     # Initialize WorkspaceClient for the specific workspace
-    # Use the databricks_host from config to ensure we connect to the right workspace
-    # We need to explicitly set the host to override the DEFAULT profile
+    # Auto-detect authentication method (works locally and in Databricks)
     from databricks.sdk.core import Config as SDKConfig
 
     if config.databricks_host:
-        # Create config with explicit host to override .databrickscfg DEFAULT
-        client_config = SDKConfig(
-            host=config.databricks_host, auth_type="databricks-cli"  # Use CLI auth
-        )
+        # Create config with explicit host, let SDK auto-detect auth method
+        # In Databricks deployment, it will use OAuth with client credentials
+        # Locally, it will use CLI auth
+        client_config = SDKConfig(host=config.databricks_host)
         client = WorkspaceClient(config=client_config)
     else:
         # Fall back to default config
@@ -102,7 +101,13 @@ def get_connection(config: DatabaseConfig):
 
     # Get current user email
     user = client.current_user.me()
-    user_email = user.emails[0].value
+    # Try to get email from user object
+    if hasattr(user, "emails") and user.emails:
+        user_email = user.emails[0].value
+    elif hasattr(user, "user_name") and user.user_name:
+        user_email = user.user_name
+    else:
+        raise ValueError("Could not determine user email from Databricks user object")
 
     # Get database instance details
     instance = client.database.get_database_instance(name=config.instance_name)
