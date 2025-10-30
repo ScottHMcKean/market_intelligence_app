@@ -126,12 +126,20 @@ Get Databricks token: Workspace → User Settings → Developer → Access Token
 
 ## Deployment
 
-Deploy to Databricks Apps:
-1. Package application
-2. Upload to workspace
-3. Configure secrets for credentials
-4. Set environment variables
-5. Deploy and share
+Deploy to Databricks Apps using `requirements.txt`. See **[DEPLOYMENT.md](DEPLOYMENT.md)** for complete deployment guide.
+
+**Quick deployment:**
+```bash
+databricks apps deploy market-intelligence-app \
+  --config-file app.yaml \
+  --source-dir .
+```
+
+**Key requirements:**
+- `databricks-sdk>=0.40.0` (for Lakebase support)
+- Configured `config.yaml` with your workspace details
+- Lakebase instance running
+- Serving endpoint deployed
 
 See: [Databricks Apps documentation](https://docs.databricks.com/apps/index.html)
 

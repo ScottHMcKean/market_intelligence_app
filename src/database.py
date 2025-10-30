@@ -92,9 +92,9 @@ def get_connection(config: DatabaseConfig):
 
     # Check SDK version for debugging
     try:
-        sdk_version = getattr(databricks.sdk, '__version__', 'unknown')
+        sdk_version = getattr(databricks.sdk, "__version__", "unknown")
     except:
-        sdk_version = 'unknown'
+        sdk_version = "unknown"
 
     if config.databricks_host:
         # Create config with explicit host, let SDK auto-detect auth method
@@ -105,9 +105,9 @@ def get_connection(config: DatabaseConfig):
     else:
         # Fall back to default config
         client = WorkspaceClient()
-    
+
     # Verify that the database API is available
-    if not hasattr(client, 'database'):
+    if not hasattr(client, "database"):
         raise AttributeError(
             f"'WorkspaceClient' object has no attribute 'database'. "
             f"This feature requires databricks-sdk>=0.40.0. "
@@ -115,29 +115,53 @@ def get_connection(config: DatabaseConfig):
             f"Please upgrade: pip install --upgrade 'databricks-sdk>=0.40.0'"
         )
 
-    # Get current user email
-    user = client.current_user.me()
-    # Try to get email from user object
-    if hasattr(user, "emails") and user.emails:
-        user_email = user.emails[0].value
-    elif hasattr(user, "user_name") and user.user_name:
-        user_email = user.user_name
-    else:
-        raise ValueError("Could not determine user email from Databricks user object")
-
     # Get database instance details
     instance = client.database.get_database_instance(name=config.instance_name)
 
     # Generate temporary credentials
+    # The credential object contains both the username and token
     credential = client.database.generate_database_credential(
         request_id=str(uuid.uuid4()), instance_names=[config.instance_name]
     )
+
+    # Debug: Log credential attributes to help troubleshoot
+    print(f"🔍 Credential object type: {type(credential)}")
+    print(
+        f"🔍 Credential attributes: {[attr for attr in dir(credential) if not attr.startswith('_')]}"
+    )
+
+    # Get current user to determine identity
+    user = client.current_user.me()
+    print(f"🔍 User object type: {type(user)}")
+    print(f"🔍 User attributes: {[attr for attr in dir(user) if not attr.startswith('_')]}")
+
+    # Determine the database username
+    # For service principals (apps), we need to use the service principal UUID
+    # For regular users, we can use their email
+    if hasattr(user, "id") and user.id:
+        # Use the ID (UUID) - this works for both service principals and users
+        # The OAuth token is tied to this identity
+        db_username = user.id
+        print(f"✓ Using user.id (OAuth identity): {db_username}")
+    elif hasattr(user, "emails") and user.emails:
+        # Fallback to email for regular users
+        db_username = user.emails[0].value
+        print(f"✓ Using user.emails: {db_username}")
+    elif hasattr(user, "user_name") and user.user_name:
+        # Fallback to username
+        db_username = user.user_name
+        print(f"✓ Using user.user_name: {db_username}")
+    else:
+        raise ValueError(
+            "Could not determine database username. "
+            "The user object has no id, email, or user_name."
+        )
 
     # Create connection parameters
     connection_params = {
         "host": instance.read_write_dns,
         "dbname": config.database_name,
-        "user": user_email,
+        "user": db_username,
         "password": credential.token,
         "sslmode": "require",
     }
